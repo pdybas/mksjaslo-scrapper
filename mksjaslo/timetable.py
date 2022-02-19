@@ -1,6 +1,8 @@
 import requests
 import json
+import os
 from bs4 import BeautifulSoup
+from mksjaslo import bus_stop
 
 class TimetableSign:
     type: str = ''
@@ -51,8 +53,7 @@ class Timetable:
 
         return self_json
 
-def get_timetable(url: str) -> str:
-    
+def get_timetable_json(url: str) -> str:
     site = requests.get(url)
     site.encoding = site.apparent_encoding
     if site.status_code != 200:
@@ -152,3 +153,27 @@ def get_timetable(url: str) -> str:
 
     timetable_json = timetable.toJson()
     return timetable_json
+
+def save_timetables_json(bus_stops_filename: str, timetable_filename: str):
+    if not os.path.exists(bus_stops_filename):
+        print("Bus stop path does not exists")
+        return
+    bus_stops = []
+    with open(bus_stops_filename, "rb") as file:
+        bus_stops = json.load(file)
+    bus_stops_urls = bus_stop.get_timetables_urls(bus_stops)
+    
+    timetables_json: list[str] = []
+    for url in bus_stops_urls:
+        url = url.strip()
+        timetable_json = get_timetable_json(url)
+        if timetable_json:
+            timetables_json.append(timetable_json)
+    
+    linked_json = ("[" + ", ".join(timetables_json) + "]").encode("utf-8")
+
+    dir_path = os.path.dirname(timetable_filename)
+    os.makedirs(dir_path, exist_ok=True)
+
+    with open(timetable_filename, "wb+") as file:
+        file.write(linked_json)
